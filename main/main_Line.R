@@ -5,6 +5,7 @@ library(RCurl)
 library(jsonlite)
 library(tidyverse)
 library(readr)
+library(deckgl)
 
 #function
 
@@ -28,7 +29,7 @@ geo_maker <- function(geo_code) {
     refine = "true",
     simple = "false",
     format = "json",
-    type = "road",
+    type = "parcel",
     key = Sys.getenv("MY_API_KEY")
   ) 
   
@@ -49,12 +50,12 @@ geo_maker <- function(geo_code) {
   return(content)
 }
 
-table_maker <- function(data, raw_data) {
+table_maker <- function(data) {
   map(1:nrow(data), function(i) {
     geo_maker(data$법정동명[i])
   }) %>%
     bind_rows() %>% 
-    bind_cols(raw_data$mean) %>% 
+    bind_cols(mean = data$mean) %>% 
     select(mean, x, y)
 }
 
@@ -66,5 +67,5 @@ chungnam <- csv_reader("~/Visual_landvalue_map/data/chungnam.csv")
 seoul_raw <- mean_reader(seoul)
 chungnam_raw <- mean_reader(chungnam)
 
-seoul_main <- table_maker(seoul, seoul_raw)
-chungnam_main <- table_maker(chungnam, chungnam_raw)
+seoul_main <- table_maker(seoul_raw)
+chungnam_main <- table_maker(chungnam_raw)
