@@ -6,6 +6,9 @@ library(jsonlite)
 library(tidyverse)
 library(readr)
 library(deckgl)
+library(RColorBrewer)
+library(htmlwidgets)
+library(formattable)
 
 #function
 
@@ -55,12 +58,13 @@ table_maker <- function(data) {
     geo_maker(data$법정동명[i])
   }) %>%
     bind_rows() %>% 
-    bind_cols(mean = data$mean) %>% 
-    select(mean, x, y)
+    bind_cols(mean = data$mean, geo = data$법정동명, mean_chr = comma(data$mean, format = "d")) %>% 
+    select(geo, mean, x, y, mean_chr)
 }
 
 
 #main_code
+
 seoul <- csv_reader("~/Visual_landvalue_map/data/seoul.csv")
 chungnam <- csv_reader("~/Visual_landvalue_map/data/chungnam.csv")
 
@@ -69,3 +73,59 @@ chungnam_raw <- mean_reader(chungnam)
 
 seoul_main <- table_maker(seoul_raw)
 chungnam_main <- table_maker(chungnam_raw)
+
+seoul_main[,2:4] <- apply(seoul_main[,2:4], 2, as.numeric) %>% as.data.frame()
+seoul_main$mean_chr <- as.character(seoul_main$mean_chr)
+
+deck <- deckgl(
+  longitude = mean(seoul_main$x),
+  latitude = mean(seoul_main$y),
+  zoom = 11,
+  pitch = 45,
+  width     = "100vw",
+  height    = "100vh",
+  sizingPolicy = sizingPolicy(
+    browser.fill = TRUE,
+    viewer.fill  = TRUE
+  )
+) %>% 
+  add_basemap() %>% 
+  add_hexagon_layer(
+    data = seoul_main,
+    id = "apt-price",
+    properties = list(
+      extruded             = TRUE,
+      radius               = 10,
+      elevationScale       = 50,
+      getPosition          = ~c(x, y),
+      getElevationWeight   = ~mean,
+      elevationAggregation = "MEAN",
+      getColorWeight       = ~mean,
+      colorAggregation     = "MEAN",
+      colorRange           = brewer.pal(6, "YlOrRd"),
+      opacity              = 0.7,
+      autoHighlight        = TRUE,
+      tooltip = "
+      <div style='
+           font-family: \"Nanum Gothic\", sans-serif;
+           font-size: 14px;
+           line-height: 1.3;
+           color: #FFFFFF;
+         '>
+        {{#points}}
+          <div style='
+               font-size: 18px;
+               font-weight: bold;
+             '>{{geo}}</div>
+        {{/points}}
+        {{#points}}
+          <div style='
+               font-size: 14px;
+             '>가격: {{mean_chr}}원</div>
+        {{/points}}
+      </div>
+      "
+    )
+  )
+
+deck
