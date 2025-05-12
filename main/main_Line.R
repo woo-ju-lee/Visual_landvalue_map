@@ -9,11 +9,24 @@ library(deckgl)
 library(RColorBrewer)
 library(htmlwidgets)
 library(formattable)
+library(tools)
+library(furrr)
 
 #function
 
-csv_reader <- function(csv) {
-  read_csv(csv, locale = locale(encoding = "euc-kr"))
+csv_reader <- function() {
+  
+  path = "~/Visual_landvalue_map/data/"
+  
+  file_list = paste0(path, list.files(path))
+  
+  file_name = file_path_sans_ext(list.files(path))
+
+  data_list <- map(file_list, ~read_csv(.x, locale = locale(encoding = "euc-kr")))
+  
+  names(data_list) <- file_name
+
+  list2env(data_list, envir = .GlobalEnv)
 }
 
 mean_reader <- function(reader) {
@@ -65,8 +78,7 @@ table_maker <- function(data) {
 
 #main_code
 
-seoul <- csv_reader("~/Visual_landvalue_map/data/seoul.csv")
-chungnam <- csv_reader("~/Visual_landvalue_map/data/chungnam.csv")
+csv_reader()
 
 seoul_raw <- mean_reader(seoul)
 chungnam_raw <- mean_reader(chungnam)
