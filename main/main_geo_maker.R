@@ -9,12 +9,32 @@ library(formattable)
 library(tools)
 library(furrr)
 library(data.table)
+library(rvest)
 
 #function
 
+list.files("~/Visual_landvalue_map/data")
+
+html_reader <- function() {
+  read_html("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=10&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=1&datPageSize=100&startDate=2024-09-12&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=") %>% html_nodes("li") %>% html_elements("div.less") %>% html_nodes("span") %>% html_text() %>% unique()
+}
+
+file_downloader <- function() {
+  walk2(
+    1370 + seq_along(file_name),
+    file.path("~/Visual_landvalue_map/data", paste0(file_name, ".zip")),
+    ~ download.file(
+      paste0("https://www.vworld.kr/dtmk/downloadResourceFile.do?ds_id=20171128DS00144&fileNo=", .x),
+      destfile = .y,
+      mode = "wb",
+      quiet = FALSE
+    )
+  )
+}
+
 csv_reader <- function() {
   
-  path = "~/Visual_landvalue_map/data/"
+  path = "~/Visual_landvalue_map/data"
   
   file_list = paste0(path, list.files(path))
 
@@ -86,6 +106,10 @@ table_maker <- function(data) {
 
 
 #main_code
+
+file_name <- html_reader()
+
+file_downloader()
 
 combine_df <- csv_reader()
 
