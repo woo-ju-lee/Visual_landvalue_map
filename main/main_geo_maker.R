@@ -12,10 +12,16 @@ library(data.table)
 library(rvest)
 
 #function
+Sys.dat
 
-html_reader <- function() {
-  read_html("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=10&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=1&datPageSize=100&startDate=2024-09-12&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=") %>% html_nodes("li") %>% html_elements("div.less") %>% html_nodes("span") %>% html_text() %>% unique()
+html_reader <- function(date) {
+  indexing <- read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=&sortType=00&datPageIndex=&datPageSize=100&startDate=", date, "&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("article.content div button") %>% html_text() %>% as.numeric() %>% max(na.rm = T)
+  
+  map(1:indexing, function(i) {
+    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("li") %>% html_elements("div.less") %>% html_nodes("span") %>% html_text() %>% unique()
+  })
 }
+
 
 file_downloader <- function(idx) {
   walk2(
@@ -32,7 +38,7 @@ file_downloader <- function(idx) {
 
 csv_reader <- function() {
   
-  path = "~/Visual_landvalue_map/data"
+  path = "~/Visual_landvalue_map/data/"
   
   file_list = paste0(path, list.files(path))
 
@@ -91,8 +97,6 @@ geo_maker <- function(geo_code) {
   })
 }
 
-
-
 table_maker <- function(data) {
   map(1:nrow(data), function(i) {
     geo_maker(data$법정동명[i])
@@ -112,6 +116,8 @@ file.exists(paste0("~/Visual_landvalue_map/data/", file_name, ".zip"))
 file_downloader()
 
 combine_df <- csv_reader()
+
+write.csv(combine_df, "combine_df.csv")
 
 combine_raw <- mean_reader(combine_df)
 
