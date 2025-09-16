@@ -12,7 +12,6 @@ library(data.table)
 library(rvest)
 
 #function
-Sys.dat
 
 html_reader <- function(date) {
   indexing <- read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=&sortType=00&datPageIndex=&datPageSize=100&startDate=", date, "&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("article.content div button") %>% html_text() %>% as.numeric() %>% max(na.rm = T)
