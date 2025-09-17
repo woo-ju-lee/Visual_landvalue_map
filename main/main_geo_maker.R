@@ -13,38 +13,46 @@ library(rvest)
 
 #function
 
-html_reader <- function(date) {
-  indexing <- read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=&sortType=00&datPageIndex=&datPageSize=100&startDate=", date, "&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("article.content div button") %>% html_text() %>% as.numeric() %>% max(na.rm = T)
+html_reader <- function(date = c(Sys.Date() - 365)) {
+  indexing <- read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=&sortType=00&datPageIndex=&datPageSize=100&startDate=", date, "&endDate=", Sys.Date(), "&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>%
+    html_nodes("article.content div button") %>% 
+    html_text() %>% 
+    as.numeric() %>% 
+    max(na.rm = T)
   
-  map(1:indexing, function(i) {
-    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=2025-09-12&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("li") %>% html_elements("div.less") %>% html_nodes("span") %>% html_text() %>% unique()
+  land_name <- map(1:indexing, function(i) {
+    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=", Sys.Date(), "&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("li") %>% 
+      html_elements("div.less") %>% 
+      html_nodes("span") %>% 
+      html_text()
+  }) %>% 
+    unlist()
+  
+  url_index <- map(1:indexing, function(i) {
+    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=", Sys.Date(), "&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("section article div.list.bd.box.hover ul li") %>% 
+    html_elements("div.btns button") %>% 
+    html_attr("onclick") %>% 
+    stringr::str_match(",\\s*'(\\d+)'\\s*,") %>% 
+    .[,2] %>% 
+    as.integer()
+  }) %>% unlist()
+  
+  list(land_name = land_name, url_index = url_index)
+}
+
+x1$index
+
+file_downloader <- function(df_data) {
+  map(1:length(df_data$url_index), function(i) {
+    download.file(paste0(url = "https://www.vworld.kr/dtmk/downloadResourceFile.do?ds_id=20171128DS00144&fileNo=", df_data$url_index[i]), destfile = file.path("~/Visual_landvalue_map/data", paste0(file_name, ".zip")))
   })
 }
 
-
-file_downloader <- function(idx) {
-  walk2(
-    1370 + seq_along(file_name[idx]),
-    file.path("~/Visual_landvalue_map/data", paste0(file_name, ".zip")),
-    ~ download.file(
-      paste0("https://www.vworld.kr/dtmk/downloadResourceFile.do?ds_id=20171128DS00144&fileNo=", .x),
-      destfile = .y,
-      mode = "wb",
-      quiet = FALSE
-    )
-  )
-}
-
 csv_reader <- function() {
-  
   path = "~/Visual_landvalue_map/data/"
-  
   file_list = paste0(path, list.files(path))
-
   data_list <- map(file_list, ~read_csv(.x, locale = locale(encoding = "euc-kr")))
-
   combined_df <- rbindlist(data_list)
-  
   return(combined_df)
 }
 
