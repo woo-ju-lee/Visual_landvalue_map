@@ -21,9 +21,17 @@ html_reader <- function(date = c(Sys.Date() - 365)) {
     max(na.rm = T)
   
   land_name <- map(1:indexing, function(i) {
-    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=", Sys.Date(), "&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% html_nodes("li") %>% 
+    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=", Sys.Date(), "&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% 
+      html_nodes("li") %>% 
       html_elements("div.less") %>% 
       html_nodes("span") %>% 
+      html_text()
+  }) %>% 
+    unlist()
+  
+  land_date <- map(1:indexing, function(i){
+    read_html(paste0("https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?usrIde=any_0000009349&pageSize=10&pageUnit=100&listPageIndex=1&gidsCd=&searchKeyword=%EA%B3%B5%EC%8B%9C&svcCde=NA&gidmCd=&searchBrmCode=&datIde=&searchFrm=&dsId=6&searchSvcCde=&searchOrganization=&dataSetSeq=6&searchTagList=&pageIndex=1&sortType=00&datPageIndex=", i, "&datPageSize=100&startDate=", date, "&endDate=", Sys.Date(), "&sidoCd=&sigunguCd=&dsNm=&formatSelect=CSV")) %>% 
+      html_elements("section article div.list.bd.box.hover ul li div.item.row div.txt > span:nth-of-type(3) em") %>% 
       html_text()
   }) %>% 
     unlist()
@@ -37,16 +45,28 @@ html_reader <- function(date = c(Sys.Date() - 365)) {
     as.integer()
   }) %>% unlist()
   
-  list(land_name = land_name, url_index = url_index)
+  list(land_name = paste0(land_name, "_", land_date), url_index = url_index)
 }
 
-x1$index
+x1 <- html_reader("2023-08-01")
 
-file_downloader <- function(df_data) {
-  map(1:length(df_data$url_index), function(i) {
-    download.file(paste0(url = "https://www.vworld.kr/dtmk/downloadResourceFile.do?ds_id=20171128DS00144&fileNo=", df_data$url_index[i]), destfile = file.path("~/Visual_landvalue_map/data", paste0(file_name, ".zip")))
+file_downloader <- function(df_data,
+                            out_dir = "~/Visual_landvalue_map/data",
+                            sleep_each = 0.3) {
+  dir.create(path.expand(out_dir), recursive = TRUE, showWarnings = FALSE)
+  base <- "https://www.vworld.kr/dtmk/downloadResourceFile.do?ds_id=20171128DS00144&fileNo="
+  options(timeout = max(600, getOption("timeout")))
+  
+  map2(df_data$url_index, df_data$land_name, ~{
+    url  <- paste0(base, .x)
+    dest <- file.path(path.expand(out_dir), paste0(.y, ".zip"))
+    download.file(url, destfile = dest, mode = "wb", method = "libcurl", quiet = TRUE)
+    Sys.sleep(sleep_each)
+    dest
   })
 }
+
+file_downloader(x1)
 
 csv_reader <- function() {
   path = "~/Visual_landvalue_map/data/"
