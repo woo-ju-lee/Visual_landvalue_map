@@ -10,6 +10,7 @@ library(tools)
 library(furrr)
 library(data.table)
 library(rvest)
+library(fs)
 
 #function
 
@@ -52,29 +53,79 @@ x1 <- html_reader("2023-08-01")
 
 file_downloader <- function(df_data,
                             out_dir = "~/Visual_landvalue_map/data",
-                            sleep_each = 0.3) {
+                            sleep_each = 0.3,
+                            tries = 5,
+                            timeout_sec = 1200) {
   dir.create(path.expand(out_dir), recursive = TRUE, showWarnings = FALSE)
   base <- "https://www.vworld.kr/dtmk/downloadResourceFile.do?ds_id=20171128DS00144&fileNo="
-  options(timeout = max(600, getOption("timeout")))
+  options(timeout = max(timeout_sec, getOption("timeout", 60)))
+  
+  backoff <- function(k) min(60, 2^(k-1))
   
   map2(df_data$url_index, df_data$land_name, ~{
     url  <- paste0(base, .x)
     dest <- file.path(path.expand(out_dir), paste0(.y, ".zip"))
-    download.file(url, destfile = dest, mode = "wb", method = "libcurl", quiet = TRUE)
-    Sys.sleep(sleep_each)
-    dest
+    tmp  <- paste0(dest, ".part")
+    
+    if (file.exists(dest) && file.info(dest)$size > 0) return(dest)
+    
+    for (k in seq_len(tries)) {
+      if (file.exists(tmp)) unlink(tmp)
+      ok <- try({
+        download.file(url, destfile = tmp, mode = "wb",
+                      method = "libcurl", quiet = FALSE)
+        TRUE
+      }, silent = TRUE)
+      
+      if (isTRUE(ok) && file.info(tmp)$size > 0) {
+        file.rename(tmp, dest)
+        Sys.sleep(sleep_each)
+        return(dest)
+      } else {
+        if (file.exists(tmp)) unlink(tmp)
+        if (k < tries) Sys.sleep(backoff(k))
+      }
+    }
+    
+    stop(sprintf("다운로드 실패: %s (index=%s)", url, .x))
   })
 }
 
 file_downloader(x1)
 
-csv_reader <- function() {
-  path = "~/Visual_landvalue_map/data/"
-  file_list = paste0(path, list.files(path))
-  data_list <- map(file_list, ~read_csv(.x, locale = locale(encoding = "euc-kr")))
-  combined_df <- rbindlist(data_list)
-  return(combined_df)
+make_chunks <- function(path = NULL,
+                        chunk_size = 17,
+                        encoding = "euc-kr") {
+  if (is.null(path)) path <- get_data_path()
+  
+  files <- list.files(path, pattern = "\\.csv$", full.names = TRUE)
+  if (length(files) == 0) stop("CSV 파일이 없습니다: ", path)
+  
+  chunk_dir <- file.path(path, "chunks")
+  if (!dir.exists(chunk_dir)) dir.create(chunk_dir, recursive = TRUE)
+  
+  idx <- split(seq_along(files), ceiling(seq_along(files) / chunk_size))
+  col_spec <- cols(.default = col_character())  # 타입 충돌 방지
+  
+  purrr::walk2(idx, seq_along(idx), ~{
+    fi <- files[.x]
+    dt <- data.table::rbindlist(
+      lapply(fi, function(f) {
+        as.data.table(readr::read_csv(f, locale = locale(encoding = encoding),
+                                      col_types = col_spec))
+      }),
+      use.names = TRUE, fill = TRUE
+    )
+    out <- file.path(chunk_dir, sprintf("chunk_%03d.rds", .y))
+    saveRDS(dt, out)
+    rm(dt); gc()
+    message(sprintf("[OK] Saved %s (files %d-%d)", out, min(.x), max(.x)))
+  })
+  
+  invisible(chunk_dir)
 }
+
+
 
 mean_reader <- function(reader) {
   reader %>% 
