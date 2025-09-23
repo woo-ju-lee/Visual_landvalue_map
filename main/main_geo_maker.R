@@ -93,39 +93,24 @@ file_downloader <- function(df_data,
 
 file_downloader(x1)
 
-make_chunks <- function(path = NULL,
-                        chunk_size = 17,
-                        encoding = "euc-kr") {
-  if (is.null(path)) path <- get_data_path()
+x2 <- str_extract(list.files("~/Visual_landvalue_map/data"), "(?<=_).*?(?=\\.)") %>% unique()
+
+list.files("~/visual_landvalue_map/data")[str_detect(list.files("~/Visual_landvalue_map/data"), x2[1])]
+
+csv_maker <- function() {
+  file_dir <- list.files("~/visual_landvalue_map/data")
+  file_date <- str_extract(file_dir, "(?<=_).*?(?=\\.)") %>% unique()
   
-  files <- list.files(path, pattern = "\\.csv$", full.names = TRUE)
-  if (length(files) == 0) stop("CSV 파일이 없습니다: ", path)
-  
-  chunk_dir <- file.path(path, "chunks")
-  if (!dir.exists(chunk_dir)) dir.create(chunk_dir, recursive = TRUE)
-  
-  idx <- split(seq_along(files), ceiling(seq_along(files) / chunk_size))
-  col_spec <- cols(.default = col_character())  # 타입 충돌 방지
-  
-  purrr::walk2(idx, seq_along(idx), ~{
-    fi <- files[.x]
-    dt <- data.table::rbindlist(
-      lapply(fi, function(f) {
-        as.data.table(readr::read_csv(f, locale = locale(encoding = encoding),
-                                      col_types = col_spec))
-      }),
-      use.names = TRUE, fill = TRUE
-    )
-    out <- file.path(chunk_dir, sprintf("chunk_%03d.rds", .y))
-    saveRDS(dt, out)
-    rm(dt); gc()
-    message(sprintf("[OK] Saved %s (files %d-%d)", out, min(.x), max(.x)))
+  map(1:(length(file_dir)/17), function(i) {
+    data_list <- read_csv(paste0("~/visual_landvalue_map/data/", file_dir[str_detect(file_dir, file_date[i])]), locale = locale(encoding = "euc-kr"))
+    
+    combined_data <- rbindlist(data_list)
+    
+    write.csv(combined_data, paste0("~/Visual_landvalue_map/clean_data/", "clean_data_", file_date[i], ".csv"), row.names = FALSE, fileEncoding = "euc-kr")
   })
-  
-  invisible(chunk_dir)
 }
 
-
+csv_maker()
 
 mean_reader <- function(reader) {
   reader %>% 
