@@ -101,13 +101,14 @@ csv_maker <- function() {
   file_dir <- list.files("~/visual_landvalue_map/data")
   file_date <- str_extract(file_dir, "(?<=_).*?(?=\\.)") %>% unique()
   
-  map(1:(length(file_dir)/17), function(i) {
+  combined_data <- map(1:(length(file_dir)/17), function(i) {
     data_list <- read_csv(paste0("~/visual_landvalue_map/data/", file_dir[str_detect(file_dir, file_date[i])]), locale = locale(encoding = "euc-kr"))
     
-    combined_data <- rbindlist(data_list)
+    combined <- rbindlist(data_list)
     
-    write.csv(combined_data, paste0("~/Visual_landvalue_map/clean_data/", "clean_data_", file_date[i], ".csv"), row.names = FALSE, fileEncoding = "euc-kr")
+    return(combined)
   })
+  write.csv(combined_data, paste0("~/Visual_landvalue_map/clean_data/", "clean_data_", file_date[i], ".csv"), row.names = FALSE, fileEncoding = "euc-kr")
 }
 
 csv_maker()
